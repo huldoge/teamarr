@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { toast } from "sonner"
 import {
   Plus,
@@ -24,9 +24,57 @@ const RULE_TYPES = [
 ] as const
 
 interface RuleFormData {
+  // Stable client-side id so rows keep their identity across re-sorts.
+  // Without this, keying by array index causes focus to follow DOM position
+  // instead of the rule, breaking double-digit priority entry (#198).
+  _id: number
   type: "m3u" | "group" | "regex"
   value: string
   priority: number
+}
+
+function PriorityInput({
+  value,
+  onCommit,
+}: {
+  value: number
+  onCommit: (next: number) => void
+}) {
+  // Local string state so the input doesn't re-sort the row mid-keystroke.
+  // Commits on blur or Enter; reverts to last valid value if input is invalid.
+  const [text, setText] = useState(String(value))
+
+  useEffect(() => {
+    setText(String(value))
+  }, [value])
+
+  const commit = () => {
+    const parsed = parseInt(text, 10)
+    if (!isNaN(parsed) && parsed >= 1 && parsed <= 99) {
+      if (parsed !== value) onCommit(parsed)
+      else setText(String(value))
+    } else {
+      setText(String(value))
+    }
+  }
+
+  return (
+    <Input
+      type="number"
+      min={1}
+      max={99}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault()
+          e.currentTarget.blur()
+        }
+      }}
+      className="text-center"
+    />
+  )
 }
 
 function RuleRow({
@@ -94,18 +142,9 @@ function RuleRow({
         </div>
 
         <div className="col-span-2">
-          <Input
-            type="number"
-            min={1}
-            max={99}
+          <PriorityInput
             value={rule.priority}
-            onChange={(e) => {
-              const val = parseInt(e.target.value)
-              if (!isNaN(val) && val >= 1 && val <= 99) {
-                onUpdate(index, { ...rule, priority: val })
-              }
-            }}
-            className="text-center"
+            onCommit={(priority) => onUpdate(index, { ...rule, priority })}
           />
         </div>
 
@@ -131,6 +170,8 @@ export function StreamOrderingManager() {
 
   const [rules, setRules] = useState<RuleFormData[]>([])
   const [hasChanges, setHasChanges] = useState(false)
+  const nextIdRef = useRef(0)
+  const allocateId = () => ++nextIdRef.current
 
   // Extract unique M3U account names and group names from groups
   const { m3uAccounts, groupNames } = useMemo(() => {
@@ -160,6 +201,7 @@ export function StreamOrderingManager() {
   useEffect(() => {
     if (settings?.rules) {
       setRules(settings.rules.map(r => ({
+        _id: allocateId(),
         type: r.type,
         value: r.value,
         priority: r.priority,
@@ -176,7 +218,10 @@ export function StreamOrderingManager() {
       nextPriority++
     }
 
-    setRules([...rules, { type: "m3u", value: "", priority: nextPriority }])
+    setRules([
+      ...rules,
+      { _id: allocateId(), type: "m3u", value: "", priority: nextPriority },
+    ])
     setHasChanges(true)
   }
 
@@ -262,9 +307,9 @@ export function StreamOrderingManager() {
             {rules
               .slice()
               .sort((a, b) => a.priority - b.priority)
-              .map((rule, index) => (
+              .map((rule) => (
                 <RuleRow
-                  key={index}
+                  key={rule._id}
                   rule={rule}
                   index={rules.indexOf(rule)}
                   onUpdate={handleUpdateRule}
