@@ -1013,11 +1013,18 @@ export function Settings() {
       })
   }, [leaguesData, leagueSearch, showSubscribedOnly, subscribedLeagueSlugs])
 
-  // Dispatcharr channel groups for per-league config
+  // Dispatcharr channel groups for per-league config.
+  // includeM3uGroups toggles the exclude_m3u backend filter — off by default
+  // since most users don't want M3U-tagged groups in the picker, but some
+  // hand-curate them and need access (see beads-5yi).
+  const [includeM3uGroups, setIncludeM3uGroups] = useState(false)
   const channelGroupsQuery = useQuery({
-    queryKey: ["dispatcharr-channel-groups"],
+    queryKey: ["dispatcharr-channel-groups", includeM3uGroups],
     queryFn: async () => {
-      const response = await fetch("/api/v1/dispatcharr/channel-groups")
+      const url = includeM3uGroups
+        ? "/api/v1/dispatcharr/channel-groups?exclude_m3u=false"
+        : "/api/v1/dispatcharr/channel-groups"
+      const response = await fetch(url)
       if (!response.ok) return []
       return response.json() as Promise<{ id: number; name: string }[]>
     },
@@ -3000,6 +3007,21 @@ export function Settings() {
             </Select>
             <p className="text-xs text-muted-foreground">
               Static group used when mode is "Static". Per-league overrides take priority.
+            </p>
+            <div className="flex items-center gap-2 pt-1">
+              <Switch
+                id="include-m3u-groups"
+                checked={includeM3uGroups}
+                onCheckedChange={setIncludeM3uGroups}
+                disabled={!dispatcharrStatus.data?.connected}
+              />
+              <Label htmlFor="include-m3u-groups" className="text-xs font-normal cursor-pointer">
+                Show M3U-sourced channel groups
+              </Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Off by default. Enable to assign groups that originated from an M3U
+              account (e.g., a group you manually curated that's also tagged with an M3U source).
             </p>
           </div>
 
