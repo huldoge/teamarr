@@ -198,4 +198,3 @@ class TemplateConfig:
     xmltv_flags: dict = field(default_factory=dict)
     xmltv_video: dict = field(default_factory=dict)
     xmltv_categories: list[str] = field(default_factory=list)
-    categories_apply_to: str = "events"  # 'all' or 'events'

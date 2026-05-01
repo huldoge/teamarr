@@ -69,7 +69,7 @@ Since v2.4.0, reconciliation handles missing columns automatically. Just edit `s
 CREATE TABLE settings (
     ...
     my_new_setting TEXT DEFAULT 'value',  -- Added
-    schema_version INTEGER DEFAULT 71
+    schema_version INTEGER DEFAULT 72
 );
 ```
 

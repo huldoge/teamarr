@@ -160,7 +160,7 @@ class TemplateCreate(BaseModel):
     xmltv_flags: dict | None = None
     xmltv_video: dict | None = None
     xmltv_categories: list[str] | None = None
-    categories_apply_to: str = "events"
+    xmltv_filler_categories: list[str] | None = None
 
     # Filler: Pregame
     pregame_enabled: bool = True
@@ -204,7 +204,7 @@ class TemplateUpdate(BaseModel):
     xmltv_flags: dict | None = None
     xmltv_video: dict | None = None
     xmltv_categories: list[str] | None = None
-    categories_apply_to: str | None = None
+    xmltv_filler_categories: list[str] | None = None
 
     # Filler toggles
     pregame_enabled: bool | None = None
@@ -256,7 +256,7 @@ class TemplateFullResponse(TemplateResponse):
     xmltv_flags: dict | None = None
     xmltv_video: dict | None = None
     xmltv_categories: list[str] | None = None
-    categories_apply_to: str | None = None
+    xmltv_filler_categories: list[str] | None = None
     pregame_periods: list[dict] | None = None
     pregame_fallback: dict | None = None
     postgame_periods: list[dict] | None = None

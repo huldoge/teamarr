@@ -38,7 +38,11 @@ CREATE TABLE IF NOT EXISTS templates (
     xmltv_flags JSON DEFAULT '{"new": true, "live": false, "date": false}',
     xmltv_video JSON DEFAULT '{"enabled": false, "quality": "HDTV"}',
     xmltv_categories JSON DEFAULT '["Sports"]',
-    categories_apply_to TEXT DEFAULT 'events' CHECK(categories_apply_to IN ('all', 'events')),
+    -- Independent category list applied only to filler programmes (pregame/postgame/idle).
+    -- Empty list = no <category> tags on filler. Replaced the old `categories_apply_to`
+    -- gate in v72: previously 'all' duplicated xmltv_categories onto filler; now you set
+    -- filler categories explicitly (e.g., ["Series"] for Emby guide-view compat).
+    xmltv_filler_categories JSON DEFAULT '[]',
 
     -- Filler: Pre-Game (uses .next suffix for upcoming game)
     pregame_enabled BOOLEAN DEFAULT 1,
@@ -357,7 +361,7 @@ CREATE TABLE IF NOT EXISTS settings (
     emby_api_key TEXT,
 
     -- Schema Version
-    schema_version INTEGER DEFAULT 71
+    schema_version INTEGER DEFAULT 72
 );
 
 -- Insert default settings

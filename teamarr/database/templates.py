@@ -55,7 +55,9 @@ class Template:
     xmltv_flags: dict = field(default_factory=lambda: {"new": True, "live": False, "date": False})
     xmltv_video: dict = field(default_factory=lambda: {"enabled": False, "quality": "HDTV"})
     xmltv_categories: list[str] = field(default_factory=lambda: ["Sports"])
-    categories_apply_to: str = "events"  # 'all' or 'events'
+    # Independent category list applied to filler programmes only. Empty = no
+    # categories on filler. Replaced the v71 categories_apply_to gate (#199).
+    xmltv_filler_categories: list[str] = field(default_factory=list)
 
     # Filler: Pregame
     pregame_enabled: bool = True
@@ -118,6 +120,8 @@ class EventTemplateConfig:
     xmltv_flags: dict = field(default_factory=lambda: {"new": True, "live": False, "date": False})
     xmltv_video: dict = field(default_factory=lambda: {"enabled": False, "quality": "HDTV"})
     xmltv_categories: list[str] = field(default_factory=lambda: ["Sports"])
+    # Independent category list applied to filler programmes only.
+    xmltv_filler_categories: list[str] = field(default_factory=list)
 
     # Conditional descriptions (evaluated against single event)
     conditional_descriptions: list[dict] = field(default_factory=list)
@@ -155,7 +159,7 @@ def _row_to_template(row: Row) -> Template:
         xmltv_flags=_parse_json(row["xmltv_flags"], {"new": True, "live": False, "date": False}),
         xmltv_video=_parse_json(row["xmltv_video"], {"enabled": False, "quality": "HDTV"}),
         xmltv_categories=_parse_json(row["xmltv_categories"], ["Sports"]),
-        categories_apply_to=row["categories_apply_to"] or "events",
+        xmltv_filler_categories=_parse_json(row["xmltv_filler_categories"], []),
         pregame_enabled=bool(row["pregame_enabled"]),
         pregame_periods=_parse_json(row["pregame_periods"], []),
         pregame_fallback=_parse_json(row["pregame_fallback"], {}),
@@ -375,6 +379,7 @@ def create_template(
         "xmltv_flags",
         "xmltv_video",
         "xmltv_categories",
+        "xmltv_filler_categories",
         "pregame_periods",
         "pregame_fallback",
         "postgame_periods",
@@ -428,6 +433,7 @@ def update_template(conn: Connection, template_id: int, **kwargs) -> bool:
         "xmltv_flags",
         "xmltv_video",
         "xmltv_categories",
+        "xmltv_filler_categories",
         "pregame_periods",
         "pregame_fallback",
         "postgame_periods",
@@ -568,8 +574,8 @@ def template_to_filler_config(template: Template) -> FillerConfig:
         description=idle_off.get("description"),
     )
 
-    # Get categories from template
-    categories = template.xmltv_categories or []
+    # Filler categories are independent from event categories (#199).
+    filler_categories = template.xmltv_filler_categories or []
 
     return FillerConfig(
         pregame_enabled=template.pregame_enabled,
@@ -581,8 +587,7 @@ def template_to_filler_config(template: Template) -> FillerConfig:
         idle_template=idle_template,
         idle_conditional=idle_conditional,
         idle_offseason=idle_offseason,
-        xmltv_categories=categories,
-        categories_apply_to=template.categories_apply_to or "events",
+        xmltv_categories=filler_categories,
     )
 
 
@@ -616,7 +621,6 @@ def template_to_programme_config(template: Template) -> TemplateConfig:
         xmltv_flags=template.xmltv_flags or {},
         xmltv_video=template.xmltv_video or {},
         xmltv_categories=categories,
-        categories_apply_to=template.categories_apply_to or "events",
     )
 
 
@@ -680,7 +684,7 @@ def seed_default_templates(conn: Connection) -> None:
         xmltv_flags={"new": True, "live": True, "date": True},
         xmltv_video={"enabled": False, "quality": "HDTV"},
         xmltv_categories=["Sports", "{sport}", "Sports Event"],
-        categories_apply_to="events",
+        xmltv_filler_categories=[],
         pregame_periods=[],
         pregame_fallback={
             "title": "Coming up: {gracenote_category} starting at {game_time.next}",
@@ -747,7 +751,7 @@ def seed_default_templates(conn: Connection) -> None:
         xmltv_flags={"new": True, "live": True, "date": True},
         xmltv_video={"enabled": False, "quality": "HDTV"},
         xmltv_categories=["Sports", "{sport}", "Sporting Event"],
-        categories_apply_to="events",
+        xmltv_filler_categories=[],
         pregame_periods=[],
         pregame_fallback={
             "title": "Coming up: {gracenote_category} starting at {game_time}",

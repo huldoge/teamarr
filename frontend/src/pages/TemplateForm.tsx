@@ -81,7 +81,7 @@ const DEFAULT_FORM: TemplateCreate = {
   xmltv_flags: { new: true, live: false, date: false },
   xmltv_video: { enabled: false, quality: "HDTV" },
   xmltv_categories: ["Sports"],
-  categories_apply_to: "events",
+  xmltv_filler_categories: [],
   pregame_enabled: true,
   pregame_fallback: DEFAULT_PREGAME,
   postgame_enabled: true,
@@ -195,7 +195,7 @@ export function TemplateForm() {
         xmltv_flags: template.xmltv_flags || { new: true, live: false, date: false },
         xmltv_video: template.xmltv_video || { enabled: false, quality: "HDTV" },
         xmltv_categories: template.xmltv_categories || ["Sports"],
-        categories_apply_to: template.categories_apply_to || "events",
+        xmltv_filler_categories: template.xmltv_filler_categories || [],
         pregame_enabled: template.pregame_enabled ?? true,
         pregame_fallback: mergeFillerContent(template.pregame_fallback, DEFAULT_PREGAME),
         postgame_enabled: template.postgame_enabled ?? true,
@@ -2243,29 +2243,103 @@ function FillersTab({ formData, setFormData, isTeamTemplate, fieldRefs, setLastF
   )
 }
 
-function XmltvTab({ formData, setFormData }: TabProps) {
-  const flags = formData.xmltv_flags || { new: true, live: false, date: false }
-  const categories = formData.xmltv_categories || ["Sports"]
+// Reusable category editor — renders the Sports / {sport} checkboxes plus a
+// comma-separated custom-category input. Used twice in XmltvTab: once for
+// event categories, once for filler categories. The two instances are
+// independent (#199).
+function CategoryEditor({
+  value,
+  onChange,
+  showSportVarOption,
+  customPlaceholder,
+  helperText,
+}: {
+  value: string[]
+  onChange: (next: string[]) => void
+  showSportVarOption: boolean
+  customPlaceholder: string
+  helperText: string
+}) {
+  const hasSports = value.includes("Sports")
+  const hasSportVar = value.includes("{sport}")
+  const customCategories = value.filter((c) => c !== "Sports" && c !== "{sport}")
 
-  const hasSports = categories.includes("Sports")
-  const hasSportVar = categories.includes("{sport}")
-  const customCategories = categories.filter((c) => c !== "Sports" && c !== "{sport}")
-
-  // Use local state for the input to preserve user's typing (including spaces)
-  // This prevents the input from being cleared when typing words that match base categories
   const [customInput, setCustomInput] = useState(customCategories.join(", "))
 
-  // Sync local input when customCategories changes externally (e.g., form reset, initial load)
-  // but not when we're actively typing (tracked by comparing parsed values)
+  // Sync from outside when the category list changes externally (form reset
+  // or initial load), but not while user is mid-typing.
   useEffect(() => {
-    const currentParsed = customInput.split(",").map((s) => s.trim()).filter(Boolean)
-    const customCatsStr = customCategories.join(",")
-    const currentStr = currentParsed.join(",")
-    // Only sync if external change (not from our own typing)
-    if (customCatsStr !== currentStr) {
+    const currentParsed = customInput
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+    if (customCategories.join(",") !== currentParsed.join(",")) {
       setCustomInput(customCategories.join(", "))
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customCategories.join(",")])
+
+  const toggle = (cat: string, checked: boolean) => {
+    if (checked) {
+      onChange([...value, cat])
+    } else {
+      onChange(value.filter((c) => c !== cat))
+    }
+  }
+
+  const updateCustom = (text: string) => {
+    setCustomInput(text)
+    const custom = text
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+    const base = [hasSports && "Sports", showSportVarOption && hasSportVar && "{sport}"].filter(
+      Boolean,
+    ) as string[]
+    onChange([...base, ...custom])
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Common Categories</Label>
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox checked={hasSports} onCheckedChange={() => toggle("Sports", !hasSports)} />
+            <span>Sports</span>
+          </label>
+          {showSportVarOption && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={hasSportVar}
+                onCheckedChange={() => toggle("{sport}", !hasSportVar)}
+              />
+              <span>
+                <code>{"{sport}"}</code> - Auto-populates with team's sport (Basketball,
+                Football, etc.)
+              </span>
+            </label>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <Label>Custom Categories (comma-separated)</Label>
+        <Input
+          value={customInput}
+          onChange={(e) => updateCustom(e.target.value)}
+          placeholder={customPlaceholder}
+        />
+        <p className="text-xs text-muted-foreground">{helperText}</p>
+      </div>
+    </div>
+  )
+}
+
+function XmltvTab({ formData, setFormData }: TabProps) {
+  const flags = formData.xmltv_flags || { new: true, live: false, date: false }
+  const eventCategories = formData.xmltv_categories || ["Sports"]
+  const fillerCategories = formData.xmltv_filler_categories || []
 
   const updateFlags = (field: keyof XmltvFlags, value: boolean) => {
     setFormData((prev) => {
@@ -2274,80 +2348,52 @@ function XmltvTab({ formData, setFormData }: TabProps) {
     })
   }
 
-  const toggleCategory = (cat: string, checked: boolean) => {
-    setFormData((prev) => {
-      const current = prev.xmltv_categories || []
-      if (checked) {
-        return { ...prev, xmltv_categories: [...current, cat] }
-      } else {
-        return { ...prev, xmltv_categories: current.filter((c) => c !== cat) }
-      }
-    })
-  }
-
-  const updateCustomCategories = (value: string) => {
-    setCustomInput(value)
-    const custom = value
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-    const base = [hasSports && "Sports", hasSportVar && "{sport}"].filter(Boolean) as string[]
-    setFormData((prev) => ({ ...prev, xmltv_categories: [...base, ...custom] }))
-  }
+  const setEventCategories = (next: string[]) =>
+    setFormData((prev) => ({ ...prev, xmltv_categories: next }))
+  const setFillerCategories = (next: string[]) =>
+    setFormData((prev) => ({ ...prev, xmltv_filler_categories: next }))
 
   return (
     <div className="space-y-6">
-      {/* Categories */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">📂 Categories</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Common Categories</Label>
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <Checkbox checked={hasSports} onCheckedChange={() => toggleCategory("Sports", !hasSports)} />
-                <span>Sports</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <Checkbox checked={hasSportVar} onCheckedChange={() => toggleCategory("{sport}", !hasSportVar)} />
-                <span>
-                  <code>{"{sport}"}</code> - Auto-populates with team's sport (Basketball, Football, etc.)
-                </span>
-              </label>
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="custom_categories">Custom Categories (comma-separated)</Label>
-            <Input
-              id="custom_categories"
-              value={customInput}
-              onChange={(e) => updateCustomCategories(e.target.value)}
-              placeholder="e.g., Entertainment, Live Events"
+      {/* Categories — split between event programmes and filler programmes (#199) */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">📂 Event Categories</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Applied to live game programmes (events).
+            </p>
+          </CardHeader>
+          <CardContent>
+            <CategoryEditor
+              value={eventCategories}
+              onChange={setEventCategories}
+              showSportVarOption={true}
+              customPlaceholder="e.g., Entertainment, Live Events"
+              helperText="Categories shown on event programmes in the EPG guide."
             />
-            <p className="text-xs text-muted-foreground">
-              Categories shown in EPG guide. Check common ones above or add custom categories.
-            </p>
-          </div>
+          </CardContent>
+        </Card>
 
-          <div className="space-y-1">
-            <Label htmlFor="categories_apply_to">Apply Categories To</Label>
-            <Select
-              id="categories_apply_to"
-              value={formData.categories_apply_to || "events"}
-              onChange={(e) => setFormData((prev) => ({ ...prev, categories_apply_to: e.target.value }))}
-            >
-              <option value="all">All Programs (Events + Filler)</option>
-              <option value="events">Events Only</option>
-            </Select>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">🎬 Filler Categories</CardTitle>
             <p className="text-xs text-muted-foreground">
-              Choose whether categories apply to all programs or only game events
+              Applied to filler programmes (pregame / postgame / idle). Independent from event
+              categories — leave empty to omit <code>&lt;category&gt;</code> tags on filler.
             </p>
-          </div>
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent>
+            <CategoryEditor
+              value={fillerCategories}
+              onChange={setFillerCategories}
+              showSportVarOption={true}
+              customPlaceholder="e.g., Series (Emby guide-view compat)"
+              helperText="Common need: add 'Series' so Emby displays the sub-title in guide view."
+            />
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Tags */}
       <Card>

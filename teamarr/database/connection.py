@@ -1336,6 +1336,52 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         conn.execute("UPDATE settings SET schema_version = 71 WHERE id = 1")
         current_version = 71
 
+    # v72: split xmltv_categories / categories_apply_to into independent
+    # event categories (xmltv_categories) and filler categories
+    # (xmltv_filler_categories). Templates that had categories_apply_to='all'
+    # had xmltv_categories applied to filler too — preserve that by copying.
+    # Templates with apply_to='events' (default) keep filler empty.
+    if current_version < 72:
+        # Reconciliation already added xmltv_filler_categories column. Populate
+        # it from xmltv_categories where the old gate was 'all'.
+        try:
+            cursor = conn.execute(
+                "SELECT id, xmltv_categories FROM templates "
+                "WHERE categories_apply_to = 'all'"
+            )
+            rows = cursor.fetchall()
+            for row in rows:
+                template_id = row[0]
+                categories_json = row[1] or "[]"
+                conn.execute(
+                    "UPDATE templates SET xmltv_filler_categories = ? WHERE id = ?",
+                    (categories_json, template_id),
+                )
+            if rows:
+                logger.info(
+                    "[MIGRATE v72] Copied xmltv_categories → xmltv_filler_categories "
+                    "for %d template(s) where categories_apply_to='all'",
+                    len(rows),
+                )
+        except sqlite3.OperationalError:
+            # Column may already be dropped on rerun — safe to ignore.
+            pass
+
+        # Drop the categories_apply_to column. Required SQLite >= 3.35 (2021).
+        try:
+            conn.execute("ALTER TABLE templates DROP COLUMN categories_apply_to")
+            logger.info("[MIGRATE v72] Dropped templates.categories_apply_to column")
+        except sqlite3.OperationalError as e:
+            # Already dropped, or older SQLite — log and continue. The dataclass
+            # no longer reads this column, so a leftover column is harmless.
+            logger.warning(
+                "[MIGRATE v72] DROP COLUMN templates.categories_apply_to skipped: %s",
+                e,
+            )
+
+        conn.execute("UPDATE settings SET schema_version = 72 WHERE id = 1")
+        current_version = 72
+
 
 def _dedup_cross_group_channels(conn: sqlite3.Connection) -> None:
     """Merge duplicate channels that exist for the same event across groups.
