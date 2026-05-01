@@ -6,10 +6,10 @@ proper layer isolation.
 """
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 
-class FillerType(str, Enum):
+class FillerType(StrEnum):
     """Types of filler content."""
 
     PREGAME = "pregame"
