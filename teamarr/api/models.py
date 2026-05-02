@@ -305,68 +305,6 @@ class EPGGenerateResponse(BaseModel):
     match_stats: MatchStats | None = None
 
 
-class EventEPGRequest(BaseModel):
-    """Request body for event-based EPG generation."""
-
-    leagues: list[str]
-    target_date: str | None = None
-    channel_prefix: str = "event"
-    pregame_minutes: int = 0
-    duration_hours: float = 3.0
-
-
-# =============================================================================
-# Stream Matching (with fingerprint cache)
-# =============================================================================
-
-
-class StreamInput(BaseModel):
-    """A stream to match."""
-
-    id: int
-    name: str
-
-
-class StreamBatchMatchRequest(BaseModel):
-    """Request for batch stream matching with cache."""
-
-    group_id: int
-    streams: list[StreamInput]
-    search_leagues: list[str]
-    include_leagues: list[str] | None = None
-    target_date: str | None = None  # YYYY-MM-DD, defaults to today
-
-
-class StreamMatchResultModel(BaseModel):
-    """Result of matching a single stream."""
-
-    stream_name: str
-    matched: bool
-    event_id: str | None = None
-    event_name: str | None = None
-    league: str | None = None
-    home_team: str | None = None
-    away_team: str | None = None
-    start_time: str | None = None
-    included: bool = False
-    exclusion_reason: str | None = None
-    from_cache: bool = False
-
-
-class StreamBatchMatchResponse(BaseModel):
-    """Response for batch stream matching."""
-
-    total: int
-    matched: int
-    included: int
-    unmatched: int
-    match_rate: float
-    cache_hits: int
-    cache_misses: int
-    cache_hit_rate: float
-    results: list[StreamMatchResultModel]
-
-
 # =============================================================================
 # Match Correction Models (Phase 7)
 # =============================================================================

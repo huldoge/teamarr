@@ -614,25 +614,6 @@ EVENT_TYPE_KEYWORDS: dict[str, list[str]] = {
 }
 
 
-# Legacy aliases for backwards compatibility during transition
-# TODO: Remove after classifier migration is complete (bead 11c.8)
-COMBAT_SPORTS_KEYWORDS: list[str] = EVENT_TYPE_KEYWORDS["EVENT_CARD"]
-
-# EVENT_CARD_KEYWORDS - league-specific keyword subsets for event matching
-# Used by event_matcher.py to do keyword-based matching
-# TODO: Remove after event_matcher is refactored to use DetectionKeywordService
-EVENT_CARD_KEYWORDS: dict[str, list[str]] = {
-    "ufc": [
-        "ufc", "fight night", "ufc fn", "main card", "prelims", "early prelims",
-        "dana white", "contender series", "dwcs",
-    ],
-    "boxing": [
-        "boxing", "main event", "undercard", "premier boxing", "top rank",
-        "matchroom", "dazn boxing", "showtime boxing", "golden boy",
-    ],
-}
-
-
 # =============================================================================
 # CARD SEGMENT PATTERNS
 # Patterns to detect card segments (Early Prelims, Prelims, Main Card) from

@@ -59,11 +59,6 @@ from teamarr.consumers.matching import (
     MatchedStreamResult,
     StreamMatcher,
 )
-from teamarr.consumers.orchestrator import (
-    GenerationResult,
-    Orchestrator,
-    TeamChannelConfig,
-)
 from teamarr.consumers.reconciliation import (
     ChannelReconciler,
     ReconciliationIssue,
@@ -165,9 +160,6 @@ __all__ = [
     "start_lifecycle_scheduler",
     "stop_lifecycle_scheduler",
     # Team-based EPG
-    "GenerationResult",
-    "Orchestrator",
-    "TeamChannelConfig",
     "TeamEPGGenerator",
     "TeamEPGOptions",
     "TemplateConfig",

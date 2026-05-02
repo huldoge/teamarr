@@ -103,10 +103,6 @@ export async function listManagedChannels(
   return api.get(`/channels/managed${query ? `?${query}` : ""}`)
 }
 
-export async function getManagedChannel(channelId: number): Promise<ManagedChannel> {
-  return api.get(`/channels/managed/${channelId}`)
-}
-
 export async function deleteManagedChannel(channelId: number): Promise<DeleteResponse> {
   return api.delete(`/channels/managed/${channelId}`)
 }
