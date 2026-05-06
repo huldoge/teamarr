@@ -60,6 +60,7 @@ class GenerationResult:
     channel_conflicts: dict = field(default_factory=dict)
     emby_refresh: dict = field(default_factory=dict)
     jellyfin_refresh: dict = field(default_factory=dict)
+    channelsdvr_refresh: dict = field(default_factory=dict)
 
     # For stats run tracking
     run_id: int | None = None
@@ -490,6 +491,48 @@ def run_full_generation(
         except Exception as e:
             logger.warning("[JELLYFIN] Guide refresh failed (non-blocking): %s", e)
             result.jellyfin_refresh = {"success": False, "error": str(e)}
+
+        # Step 5d: Channels DVR M3U source refresh
+        check_cancelled()
+        try:
+            from teamarr.database.settings import get_channelsdvr_settings
+
+            with db_factory() as conn:
+                channelsdvr_settings = get_channelsdvr_settings(conn)
+
+            if (
+                channelsdvr_settings.enabled
+                and channelsdvr_settings.url
+                and channelsdvr_settings.source_name
+            ):
+                update_progress(
+                    "channelsdvr", 97, "Refreshing Channels DVR source..."
+                )
+                from teamarr.channelsdvr.client import ChannelsDVRClient
+
+                client = ChannelsDVRClient(
+                    base_url=channelsdvr_settings.url,
+                    source_name=channelsdvr_settings.source_name,
+                    username=channelsdvr_settings.username or "",
+                    password=channelsdvr_settings.password or "",
+                )
+                channelsdvr_result = client.trigger_m3u_refresh(timeout=60)
+                result.channelsdvr_refresh = channelsdvr_result
+                if channelsdvr_result.get("success"):
+                    logger.info(
+                        "[CHANNELSDVR] M3U refresh triggered in %.1fs",
+                        channelsdvr_result.get("duration", 0),
+                    )
+                else:
+                    logger.warning(
+                        "[CHANNELSDVR] M3U refresh failed: %s",
+                        channelsdvr_result.get("message"),
+                    )
+        except Exception as e:
+            logger.warning(
+                "[CHANNELSDVR] M3U refresh failed (non-blocking): %s", e
+            )
+            result.channelsdvr_refresh = {"success": False, "error": str(e)}
 
         # Step 6: Process scheduled deletions (98-99%)
         check_cancelled()

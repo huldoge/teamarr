@@ -11,6 +11,7 @@ from .types import (
     APISettings,
     BackupSettings,
     ChannelNumberingSettings,
+    ChannelsDVRSettings,
     DispatcharrSettings,
     DisplaySettings,
     DurationSettings,
@@ -195,6 +196,7 @@ def get_all_settings(conn: Connection) -> AllSettings:
         feed_separation=_build_feed_separation_settings(row),
         emby=_build_emby_settings(row),
         jellyfin=_build_jellyfin_settings(row),
+        channelsdvr=_build_channelsdvr_settings(row),
         epg_generation_counter=row["epg_generation_counter"] or 0,
         schema_version=row["schema_version"] or 2,
     )
@@ -790,3 +792,51 @@ def get_jellyfin_settings(conn: Connection) -> JellyfinSettings:
         return JellyfinSettings()
 
     return _build_jellyfin_settings(row)
+
+
+_CHANNELSDVR_DEFAULTS = ChannelsDVRSettings()
+
+
+def _build_channelsdvr_settings(row) -> ChannelsDVRSettings:
+    """Build ChannelsDVRSettings from DB row, using dataclass defaults for NULL."""
+    d = _CHANNELSDVR_DEFAULTS
+    return ChannelsDVRSettings(
+        enabled=bool(row["channelsdvr_enabled"])
+        if "channelsdvr_enabled" in row.keys()
+        and row["channelsdvr_enabled"] is not None
+        else d.enabled,
+        url=row["channelsdvr_url"]
+        if "channelsdvr_url" in row.keys()
+        else d.url,
+        source_name=row["channelsdvr_source_name"]
+        if "channelsdvr_source_name" in row.keys()
+        else d.source_name,
+        username=row["channelsdvr_username"]
+        if "channelsdvr_username" in row.keys()
+        else d.username,
+        password=row["channelsdvr_password"]
+        if "channelsdvr_password" in row.keys()
+        else d.password,
+    )
+
+
+def get_channelsdvr_settings(conn: Connection) -> ChannelsDVRSettings:
+    """Get Channels DVR integration settings.
+
+    Args:
+        conn: Database connection
+
+    Returns:
+        ChannelsDVRSettings object with Channels DVR configuration
+    """
+    cursor = conn.execute(
+        """SELECT channelsdvr_enabled, channelsdvr_url, channelsdvr_source_name,
+                  channelsdvr_username, channelsdvr_password
+           FROM settings WHERE id = 1"""
+    )
+    row = cursor.fetchone()
+
+    if not row:
+        return ChannelsDVRSettings()
+
+    return _build_channelsdvr_settings(row)

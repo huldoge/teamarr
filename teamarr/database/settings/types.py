@@ -270,6 +270,17 @@ class JellyfinSettings:
 
 
 @dataclass
+class ChannelsDVRSettings:
+    """Channels DVR integration settings for M3U source refresh."""
+
+    enabled: bool = False
+    url: str | None = None
+    source_name: str | None = None
+    username: str | None = None
+    password: str | None = None
+
+
+@dataclass
 class AllSettings:
     """Complete application settings."""
 
@@ -290,5 +301,6 @@ class AllSettings:
     feed_separation: FeedSeparationSettings = field(default_factory=FeedSeparationSettings)
     emby: EmbySettings = field(default_factory=EmbySettings)
     jellyfin: JellyfinSettings = field(default_factory=JellyfinSettings)
+    channelsdvr: ChannelsDVRSettings = field(default_factory=ChannelsDVRSettings)
     epg_generation_counter: int = 0
     schema_version: int = 52

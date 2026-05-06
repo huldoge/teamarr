@@ -236,6 +236,21 @@ export interface JellyfinTestResponse {
   error?: string | null
 }
 
+export interface ChannelsDVRSettings {
+  enabled: boolean
+  url: string | null
+  source_name: string | null
+  username: string | null
+  password: string | null
+}
+
+export interface ChannelsDVRTestResponse {
+  success: boolean
+  server_version?: string | null
+  source_name?: string | null
+  error?: string | null
+}
+
 export interface AllSettings {
   dispatcharr: DispatcharrSettings
   lifecycle: LifecycleSettings
@@ -251,6 +266,7 @@ export interface AllSettings {
   feed_separation?: FeedSeparationSettings
   emby?: EmbySettings
   jellyfin?: JellyfinSettings
+  channelsdvr?: ChannelsDVRSettings
   epg_generation_counter: number
   schema_version: number
   // UI timezone info (read-only, from environment or fallback to epg_timezone)
@@ -539,4 +555,17 @@ export async function updateJellyfinSettings(data: Partial<JellyfinSettings>): P
 
 export async function testJellyfinConnection(data?: { url?: string; username?: string; password?: string; api_key?: string }): Promise<JellyfinTestResponse> {
   return api.post("/jellyfin/test", data || {})
+}
+
+// Channels DVR Settings API
+export async function getChannelsDVRSettings(): Promise<ChannelsDVRSettings> {
+  return api.get("/settings/channelsdvr")
+}
+
+export async function updateChannelsDVRSettings(data: Partial<ChannelsDVRSettings>): Promise<ChannelsDVRSettings> {
+  return api.put("/settings/channelsdvr", data)
+}
+
+export async function testChannelsDVRConnection(data?: { url?: string; source_name?: string; username?: string; password?: string }): Promise<ChannelsDVRTestResponse> {
+  return api.post("/channelsdvr/test", data || {})
 }

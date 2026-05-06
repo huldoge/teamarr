@@ -367,6 +367,13 @@ CREATE TABLE IF NOT EXISTS settings (
     jellyfin_password TEXT,
     jellyfin_api_key TEXT,
 
+    -- Channels DVR Integration (M3U Source Refresh)
+    channelsdvr_enabled BOOLEAN DEFAULT 0,
+    channelsdvr_url TEXT,
+    channelsdvr_source_name TEXT,
+    channelsdvr_username TEXT,
+    channelsdvr_password TEXT,
+
     -- Schema Version
     schema_version INTEGER DEFAULT 73
 );

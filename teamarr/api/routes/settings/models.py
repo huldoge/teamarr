@@ -508,6 +508,56 @@ class JellyfinConnectionTestResponse(BaseModel):
 
 
 # =============================================================================
+# CHANNELS DVR SETTINGS
+# =============================================================================
+
+
+class ChannelsDVRSettingsModel(BaseModel):
+    """Channels DVR integration settings."""
+
+    enabled: bool = False
+    url: str | None = None
+    source_name: str | None = None
+    username: str | None = None
+    password: str | None = None
+
+    @field_serializer("password")
+    @classmethod
+    def _mask_password(cls, v: str | None) -> str | None:
+        return MASKED_SECRET if v else None
+
+
+class ChannelsDVRSettingsUpdate(BaseModel):
+    """Update model for Channels DVR settings (all fields optional)."""
+
+    enabled: bool | None = None
+    url: str | None = None
+    source_name: str | None = None
+    username: str | None = None
+    password: str | None = None
+
+
+class ChannelsDVRConnectionTestRequest(BaseModel):
+    """Request to test Channels DVR connection."""
+
+    url: str | None = Field(
+        None, description="Override URL (uses saved if not provided)"
+    )
+    source_name: str | None = Field(None, description="Override source name")
+    username: str | None = Field(None, description="Override Basic Auth username")
+    password: str | None = Field(None, description="Override Basic Auth password")
+
+
+class ChannelsDVRConnectionTestResponse(BaseModel):
+    """Response from Channels DVR connection test."""
+
+    success: bool
+    server_version: str | None = None
+    source_name: str | None = None
+    error: str | None = None
+
+
+# =============================================================================
 # ALL SETTINGS
 # =============================================================================
 
@@ -529,6 +579,7 @@ class AllSettingsModel(BaseModel):
     feed_separation: FeedSeparationSettingsModel | None = None
     emby: EmbySettingsModel = EmbySettingsModel()
     jellyfin: JellyfinSettingsModel = JellyfinSettingsModel()
+    channelsdvr: ChannelsDVRSettingsModel = ChannelsDVRSettingsModel()
     epg_generation_counter: int = 0
     schema_version: int = 44
 

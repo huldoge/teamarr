@@ -13,6 +13,7 @@ from fastapi import APIRouter
 from teamarr.database import get_db
 
 from .channel_numbering import router as channel_numbering_router
+from .channelsdvr import router as channelsdvr_router
 from .dispatcharr import router as dispatcharr_router
 from .display import router as display_router
 from .emby import router as emby_router
@@ -23,6 +24,7 @@ from .lifecycle import router as lifecycle_router
 from .models import (
     AllSettingsModel,
     ChannelNumberingSettingsModel,
+    ChannelsDVRSettingsModel,
     DispatcharrSettingsModel,
     DisplaySettingsModel,
     DurationSettingsModel,
@@ -49,6 +51,7 @@ router = APIRouter()
 router.include_router(dispatcharr_router)
 router.include_router(emby_router)
 router.include_router(jellyfin_router)
+router.include_router(channelsdvr_router)
 router.include_router(lifecycle_router)
 router.include_router(epg_router)
 router.include_router(display_router)
@@ -178,6 +181,13 @@ def get_settings():
             password=settings.jellyfin.password,
             api_key=settings.jellyfin.api_key,
         ),
+        channelsdvr=ChannelsDVRSettingsModel(
+            enabled=settings.channelsdvr.enabled,
+            url=settings.channelsdvr.url,
+            source_name=settings.channelsdvr.source_name,
+            username=settings.channelsdvr.username,
+            password=settings.channelsdvr.password,
+        ),
         epg_generation_counter=settings.epg_generation_counter,
         schema_version=settings.schema_version,
         # UI timezone info (read-only)
@@ -191,6 +201,7 @@ __all__ = [
     "router",
     "AllSettingsModel",
     "ChannelNumberingSettingsModel",
+    "ChannelsDVRSettingsModel",
     "DispatcharrSettingsModel",
     "DisplaySettingsModel",
     "DurationSettingsModel",

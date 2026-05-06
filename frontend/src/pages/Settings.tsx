@@ -73,6 +73,9 @@ import {
   useJellyfinSettings,
   useUpdateJellyfinSettings,
   useTestJellyfinConnection,
+  useChannelsDVRSettings,
+  useUpdateChannelsDVRSettings,
+  useTestChannelsDVRConnection,
 } from "@/hooks/useSettings"
 import { SortPriorityManager } from "@/components/SortPriorityManager"
 import { StreamOrderingManager } from "@/components/StreamOrderingManager"
@@ -104,6 +107,7 @@ import type {
   FeedSeparationSettings,
   EmbySettings,
   JellyfinSettings,
+  ChannelsDVRSettings,
   SubscriptionLeagueConfig,
   TSDBKeyValidationResult,
 } from "@/api/settings"
@@ -925,6 +929,11 @@ export function Settings() {
   const updateJellyfin = useUpdateJellyfinSettings()
   const testJellyfin = useTestJellyfinConnection()
 
+  // Channels DVR settings
+  const { data: channelsdvrData } = useChannelsDVRSettings()
+  const updateChannelsDVR = useUpdateChannelsDVRSettings()
+  const testChannelsDVR = useTestChannelsDVRConnection()
+
   // Per-league subscription config
   const { data: leagueConfigsData } = useLeagueConfigs()
   const upsertLeagueConfigMutation = useUpsertLeagueConfig()
@@ -996,6 +1005,14 @@ export function Settings() {
     api_key: null,
   })
   const [jellyfinTestResult, setJellyfinTestResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [channelsdvr, setChannelsDVR] = useState<Partial<ChannelsDVRSettings>>({
+    enabled: false,
+    url: null,
+    source_name: null,
+    username: null,
+    password: null,
+  })
+  const [channelsdvrTestResult, setChannelsDVRTestResult] = useState<{ success: boolean; message: string } | null>(null)
   const [newKeyword, setNewKeyword] = useState({ label: "", match_terms: "", behavior: "consolidate" })
   const [editingKeyword, setEditingKeyword] = useState<{ id: number; label: string; match_terms: string } | null>(null)
 
@@ -1123,6 +1140,19 @@ export function Settings() {
       })
     }
   }, [jellyfinData])
+
+  // Sync channels dvr state when data loads
+  useEffect(() => {
+    if (channelsdvrData) {
+      setChannelsDVR({
+        enabled: channelsdvrData.enabled,
+        url: channelsdvrData.url,
+        source_name: channelsdvrData.source_name,
+        username: channelsdvrData.username,
+        password: "", // Don't show masked password
+      })
+    }
+  }, [channelsdvrData])
 
   // Sync channel range inputs from lifecycle on initial load only
   const channelRangeInitializedRef = useRef(false)
@@ -1284,6 +1314,54 @@ export function Settings() {
       }
     } catch (err) {
       setJellyfinTestResult({
+        success: false,
+        message: err instanceof Error ? err.message : "Connection test failed",
+      })
+    }
+  }
+
+  const handleSaveChannelsDVR = async () => {
+    try {
+      const data: Partial<ChannelsDVRSettings> = {
+        enabled: channelsdvr.enabled,
+        url: channelsdvr.url,
+        source_name: channelsdvr.source_name,
+        username: channelsdvr.username,
+      }
+      if (channelsdvr.password) {
+        data.password = channelsdvr.password
+      }
+      await updateChannelsDVR.mutateAsync(data)
+      toast.success("Channels DVR settings saved")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save")
+    }
+  }
+
+  const handleTestChannelsDVR = async () => {
+    try {
+      setChannelsDVRTestResult(null)
+      const result = await testChannelsDVR.mutateAsync({
+        url: channelsdvr.url || undefined,
+        source_name: channelsdvr.source_name || undefined,
+        username: channelsdvr.username || undefined,
+        password: channelsdvr.password || undefined,
+      })
+      if (result.success) {
+        const versionPart = result.server_version ? ` (v${result.server_version})` : ""
+        const sourcePart = result.source_name ? ` — source '${result.source_name}' OK` : ""
+        setChannelsDVRTestResult({
+          success: true,
+          message: `Connected to Channels DVR${versionPart}${sourcePart}`,
+        })
+      } else {
+        setChannelsDVRTestResult({
+          success: false,
+          message: result.error || "Connection failed",
+        })
+      }
+    } catch (err) {
+      setChannelsDVRTestResult({
         success: false,
         message: err instanceof Error ? err.message : "Connection test failed",
       })
@@ -3203,7 +3281,7 @@ export function Settings() {
       <div className="mb-4">
         <h2 className="text-lg font-semibold">Media Servers</h2>
         <p className="text-sm text-muted-foreground">
-          Auto-refresh Live TV guides after EPG generation. Both can be enabled at once.
+          Auto-refresh downstream guides/sources after EPG generation. Each integration can be enabled independently.
         </p>
       </div>
 
@@ -3402,6 +3480,111 @@ export function Settings() {
           {/* Save button */}
           <Button onClick={handleSaveJellyfin} disabled={updateJellyfin.isPending}>
             {updateJellyfin.isPending ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-1" />
+            )}
+            Save
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Channels DVR</CardTitle>
+              <CardDescription>Auto-refresh an M3U source after EPG generation</CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button onClick={handleTestChannelsDVR} variant="outline" size="sm" disabled={testChannelsDVR.isPending}>
+                {testChannelsDVR.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <TestTube className="h-4 w-4 mr-1" />
+                )}
+                Test
+              </Button>
+              {channelsdvrTestResult && (
+                channelsdvrTestResult.success ? (
+                  <Badge variant="success" className="gap-1">
+                    <CheckCircle className="h-3 w-3" /> {channelsdvrTestResult.message}
+                  </Badge>
+                ) : (
+                  <Badge variant="destructive" className="gap-1">
+                    <XCircle className="h-3 w-3" /> {channelsdvrTestResult.message}
+                  </Badge>
+                )
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Enable */}
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={channelsdvr.enabled ?? false}
+              onCheckedChange={(checked) => setChannelsDVR({ ...channelsdvr, enabled: checked })}
+            />
+            <Label>Enable Channels DVR Integration</Label>
+          </div>
+
+          {/* URL */}
+          <div className="space-y-2">
+            <Label htmlFor="channelsdvr-url">URL</Label>
+            <Input
+              id="channelsdvr-url"
+              value={channelsdvr.url ?? ""}
+              onChange={(e) => setChannelsDVR({ ...channelsdvr, url: e.target.value })}
+              placeholder="http://channelsdvr:8089"
+            />
+          </div>
+
+          {/* Source Name */}
+          <div className="space-y-2">
+            <Label htmlFor="channelsdvr-source-name">M3U Source Name</Label>
+            <Input
+              id="channelsdvr-source-name"
+              value={channelsdvr.source_name ?? ""}
+              onChange={(e) => setChannelsDVR({ ...channelsdvr, source_name: e.target.value })}
+              placeholder="Teamarr"
+            />
+            <p className="text-xs text-muted-foreground">
+              The exact name of the M3U source as configured in Channels DVR. Refresh hits
+              <code className="mx-1 px-1 rounded bg-muted">PUT /providers/m3u/sources/&lt;name&gt;/refresh</code>
+              after each generation.
+            </p>
+          </div>
+
+          {/* Username/Password (optional Basic Auth) */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="channelsdvr-username">Username (optional)</Label>
+              <Input
+                id="channelsdvr-username"
+                value={channelsdvr.username ?? ""}
+                onChange={(e) => setChannelsDVR({ ...channelsdvr, username: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="channelsdvr-password">Password (optional)</Label>
+              <Input
+                id="channelsdvr-password"
+                type="password"
+                value={channelsdvr.password ?? ""}
+                onChange={(e) => setChannelsDVR({ ...channelsdvr, password: e.target.value })}
+                placeholder="Leave blank to keep current"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Channels DVR's local API has no authentication by default. Only fill these in if you
+            front the server with a reverse proxy that requires HTTP Basic Auth.
+          </p>
+
+          {/* Save button */}
+          <Button onClick={handleSaveChannelsDVR} disabled={updateChannelsDVR.isPending}>
+            {updateChannelsDVR.isPending ? (
               <Loader2 className="h-4 w-4 mr-1 animate-spin" />
             ) : (
               <Save className="h-4 w-4 mr-1" />

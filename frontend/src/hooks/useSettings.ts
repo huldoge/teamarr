@@ -43,6 +43,9 @@ import {
   getJellyfinSettings,
   updateJellyfinSettings,
   testJellyfinConnection,
+  getChannelsDVRSettings,
+  updateChannelsDVRSettings,
+  testChannelsDVRConnection,
 } from "@/api/settings"
 import type {
   DispatcharrSettings,
@@ -59,6 +62,7 @@ import type {
   FeedSeparationSettingsUpdate,
   EmbySettings,
   JellyfinSettings,
+  ChannelsDVRSettings,
 } from "@/api/settings"
 
 export function useSettings() {
@@ -474,5 +478,32 @@ export function useTestJellyfinConnection() {
   return useMutation({
     mutationFn: (data?: { url?: string; username?: string; password?: string; api_key?: string }) =>
       testJellyfinConnection(data),
+  })
+}
+
+// Channels DVR Settings Hooks
+export function useChannelsDVRSettings() {
+  return useQuery({
+    queryKey: ["settings", "channelsdvr"],
+    queryFn: getChannelsDVRSettings,
+  })
+}
+
+export function useUpdateChannelsDVRSettings() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: Partial<ChannelsDVRSettings>) =>
+      updateChannelsDVRSettings(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["settings"] })
+    },
+  })
+}
+
+export function useTestChannelsDVRConnection() {
+  return useMutation({
+    mutationFn: (data?: { url?: string; source_name?: string; username?: string; password?: string }) =>
+      testChannelsDVRConnection(data),
   })
 }
