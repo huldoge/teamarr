@@ -53,14 +53,3 @@ Team templates are different from event templates — they support `.next` and `
 ### Schedule Days
 
 Configure how many days of schedule to fetch per team in **Settings > Teams**. More days means more programmes in the EPG but longer generation times.
-
-## Team Channels in Dispatcharr
-
-When Dispatcharr integration is configured, Teamarr creates and manages channels for each team:
-
-- Channel names use the team template's channel name format
-- Channel logos are set from the team's logo URL
-- Channels are assigned to the configured channel group and profiles
-- Channel numbers follow the configured numbering mode (auto or manual)
-
-Channels persist even when no game is scheduled — they show idle filler content instead.
