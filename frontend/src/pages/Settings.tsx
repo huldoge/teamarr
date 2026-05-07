@@ -590,6 +590,7 @@ function LeagueConfigRow({
   hasOverride,
   channelProfiles,
   channelGroups,
+  includeM3uGroups,
   dispatcharrConnected,
   onToggleExpand,
   onSave,
@@ -601,7 +602,8 @@ function LeagueConfigRow({
   isExpanded: boolean
   hasOverride: boolean
   channelProfiles: { id: number; name: string }[]
-  channelGroups: { id: number; name: string }[]
+  channelGroups: { id: number; name: string; from_m3u?: boolean }[]
+  includeM3uGroups: boolean
   dispatcharrConnected: boolean
   onToggleExpand: () => void
   onSave: (data: {
@@ -757,11 +759,16 @@ function LeagueConfigRow({
                   className="w-64"
                 >
                   <option value="">Default (inherit)</option>
-                  {channelGroups.map((g) => (
-                    <option key={g.id} value={g.id.toString()}>
-                      {g.name}
-                    </option>
-                  ))}
+                  {channelGroups
+                    .filter(
+                      (g) =>
+                        includeM3uGroups || !g.from_m3u || g.id === localGroupId,
+                    )
+                    .map((g) => (
+                      <option key={g.id} value={g.id.toString()}>
+                        {g.name}
+                      </option>
+                    ))}
                 </Select>
               </div>
 
@@ -1049,23 +1056,38 @@ export function Settings() {
   }, [leaguesData, leagueSearch, showSubscribedOnly, subscribedLeagueSlugs])
 
   // Dispatcharr channel groups for per-league config.
-  // includeM3uGroups toggles the exclude_m3u backend filter — off by default
-  // since most users don't want M3U-tagged groups in the picker, but some
-  // hand-curate them and need access (see beads-5yi).
+  // Always fetch the full list (with from_m3u flag) so a saved M3U-sourced
+  // group always has a matching <option> to bind to — otherwise the native
+  // <select> silently displays "None" on reload while the underlying state
+  // still holds the saved id, leading users to think the value was lost
+  // (teamarrv2-t6d). The includeM3uGroups toggle now filters the displayed
+  // list on the frontend, but the currently-selected group is always shown.
   const [includeM3uGroups, setIncludeM3uGroups] = useState(false)
   const channelGroupsQuery = useQuery({
-    queryKey: ["dispatcharr-channel-groups", includeM3uGroups],
+    queryKey: ["dispatcharr-channel-groups"],
     queryFn: async () => {
-      const url = includeM3uGroups
-        ? "/api/v1/dispatcharr/channel-groups?exclude_m3u=false"
-        : "/api/v1/dispatcharr/channel-groups"
-      const response = await fetch(url)
+      const response = await fetch(
+        "/api/v1/dispatcharr/channel-groups?exclude_m3u=false"
+      )
       if (!response.ok) return []
-      return response.json() as Promise<{ id: number; name: string }[]>
+      return response.json() as Promise<
+        { id: number; name: string; from_m3u: boolean }[]
+      >
     },
     enabled: dispatcharrStatus.data?.connected ?? false,
     retry: false,
   })
+
+  // Filter channel-group options for a picker. Hides M3U-sourced groups
+  // when the toggle is off, but always keeps the currently-selected
+  // option so reloads can't visually orphan a saved id.
+  const visibleChannelGroups = (
+    all: { id: number; name: string; from_m3u: boolean }[],
+    selectedId: number | null | undefined,
+  ) => {
+    if (includeM3uGroups) return all
+    return all.filter((g) => !g.from_m3u || g.id === selectedId)
+  }
 
   const initializedRef = useRef(false)
 
@@ -2541,6 +2563,7 @@ export function Settings() {
                         hasOverride={hasOverride}
                         channelProfiles={channelProfilesQuery.data ?? []}
                         channelGroups={channelGroupsQuery.data ?? []}
+                        includeM3uGroups={includeM3uGroups}
                         dispatcharrConnected={dispatcharrStatus.data?.connected ?? false}
                         onToggleExpand={() =>
                           setExpandedLeagueConfig(isExpanded ? null : league.slug)
@@ -3148,7 +3171,10 @@ export function Settings() {
               className="w-64"
             >
               <option value="">None</option>
-              {(channelGroupsQuery.data ?? []).map((g) => (
+              {visibleChannelGroups(
+                channelGroupsQuery.data ?? [],
+                dispatcharr.default_channel_group_id,
+              ).map((g) => (
                 <option key={g.id} value={g.id.toString()}>
                   {g.name}
                 </option>
